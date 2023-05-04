@@ -4,7 +4,7 @@
 I created this script, because I wanted to backup my NAS, but my host (hello 1fichier) only accepts **files**, so instead of bothering to create all my folders manually, I bothered even more to create a script to do that automatically, before an (S)FTP upload.
 (I have too much free time...)
 
-I recommend to move it to an environment present in the path, like /usr/local/bin, and then to be used in the folder you want.
+I recommend to move the script to an environment present in the path, like /usr/local/bin, and then to be used in the folder you want.
 
 For example:
 You want to save your **stuff_super_important** folder
