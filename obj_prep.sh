@@ -1,92 +1,76 @@
 #!/bin/bash
 
-# Encode folders : Change spaces to §
+# Script to encode and decode file and folder names
+
+SCRIPT_NAME="$0"
+
+# Encode folders by replacing spaces with "§"
 encode_folders() {
-    find . -depth -name "* *" -execdir bash -c 'mv "$1" "${1// /§}"' _ {} \;
+  find . -depth -name "* *" -execdir bash -c 'mv "$1" "${1// /§}"' _ {} \;
 }
 
-# Encode files :
-# - Find the full path of the file with readlink
-# - Change spaces to _
-# - Change / to @
-# - Change the first dot to nothing
+# Encode files by replacing characters in the file path
 encode_files() {
-    # Rename files
-    find . -type f -exec sh -c '
-          for file do
-              # save full path without spaces in var
-              fullpath=$(readlink -f $file | sed -r "s/\//@/g" | sed -r "s/ /_/g" | sed -r "s/§/ /g" | sed -r "s/^\.\///")
-              # rename file
-              mv "$file" "$fullpath"
-          done
-  ' sh {} +
+  while IFS= read -r -d '' file; do
+    # Skip encoding the script file
+    if [[ "$file" != "$SCRIPT_NAME" ]]; then
+      # Encode the file path by replacing characters with their encoded counterparts
+      fullpath=$(readlink -f "$file" | sed -r "s/\//@/g" | sed -r "s/ /_/g" | sed -r "s/§/ /g" | sed -r "s/^\.\///")
+      mv "$file" "$fullpath"  # Rename the file with the encoded file path
+    fi
+  done < <(find . -type f -print0)
 }
 
-# Remove empty folders recursively
+# Find and remove empty folders
 find_empty_folders() {
-    find . -depth -type d -empty -exec rmdir {} \;
+  find . -depth -type d -empty -exec rmdir {} \;
 }
 
-# Decode files :
-# - Change @ to /, then mkdir -p to create the folder if it doesn't exist
-# - Change _ to spaces
-# - Change § to spaces
+# Decode files by restoring characters in the file path
 decode_files() {
-    find . -type f -exec sh -c '
-    (
-        for file do
-            # restore original name without the first slash
-            filename=$(echo "$file" | sed -r "s/@/\//g" | sed -r "s/^\.\///" | sed -r "s/§/ /g" | sed -r "s/_/ /g" | sed -r "s/^\///")
-            # create folder if it doesnt exist without the file
-            mkdir -p "$(dirname "$filename")"
-            # rename file
-            mv "$file" "$filename"
-        done
-    )
-    ' sh {} +
+  while IFS= read -r -d '' file; do
+    # Skip decoding the script file
+    if [[ "$file" != "$SCRIPT_NAME" ]]; then
+      # Decode the file path by replacing encoded characters with their original counterparts
+      filename=$(echo "$file" | sed -r "s/@/\//g" | sed -r "s/^\.\///" | sed -r "s/§/ /g" | sed -r "s/_/ /g" | sed -r "s/^\///")
+      mkdir -p "$(dirname "$filename")"  # Create the directory structure for the decoded file path
+      mv "$file" "$filename"  # Rename the file with the decoded file path
+    fi
+  done < <(find . -type f -print0)
 }
 
-# Reverse folders encoding : Change § to spaces
+# Decode folders by replacing "§" with spaces
 decode_folders() {
-    find . -depth -name "*§*" -execdir bash -c 'mv "$1" "${1//§/ }"' _ {} \;
+  find . -depth -name "*§*" -execdir bash -c 'mv "$1" "${1//§/ }"' _ {} \;
 }
 
 # Main function
 main() {
-    # If no argument is given, kill the script
-    if [ $# -eq 0 ]; then
-        echo "No argument given"
-        exit 1
-    fi
-
-    # If there is more than one argument, kill the script
-    if [ $# -gt 1 ]; then
-        echo "Too many arguments"
-        exit 1
-    fi
-
-    # If argument is not --encode or --decode, kill the script
-    if [ $1 != "--encode" ] && [ $1 != "--decode" ]; then
-        echo "Wrong argument"
-        exit 1
-    fi
-
-    # If the argument is --encode, encode the files and folders
-    if [ $1 = "--encode" ]; then
-        encode_folders
-        encode_files
-        find_empty_folders
-    fi
-
-    # If the argument is --decode, decode the files and folders
-    if [ $1 = "--decode" ]; then
-        decode_files
-        decode_folders
-        find_empty_folders
-    fi
+  case $1 in
+    --encode)
+      # Encode operation: encode folders, encode files, and remove empty folders
+      encode_folders
+      encode_files
+      find_empty_folders
+      ;;
+    --decode)
+      # Decode operation: decode files, decode folders, and remove empty folders
+      decode_files
+      decode_folders
+      find_empty_folders
+      ;;
+    *)
+      echo "Invalid argument. Usage: $0 [--encode|--decode]"
+      exit 1
+      ;;
+  esac
 }
 
-# Call main function
-main $1
+# Check the number of command-line arguments
+if [[ $# -ne 1 ]]; then
+  echo "Invalid number of arguments. Usage: $0 [--encode|--decode]"
+  exit 1
+fi
 
-# Required packages, other than bash : sed, find, readlink, mkdir, mv, rmdir and everything else is bash builtins
+# Call the main function with the provided argument
+main "$1"
