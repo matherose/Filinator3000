@@ -18,7 +18,7 @@ $ ls -l stuff_super_important
 Go to the folder and launch the script to encode
 ```bash
 $ cd stuff_super_important
-$ obj_prep.sh --encode
+$ filinator.sh --encode
 ```
 **Result**
 ```bash
@@ -32,7 +32,7 @@ And you're ready to go !
 And once your wife has gone to work, you can download your files back to the office PC to restore everything:
 ```bash
 $ cd [Where_you_want_to_decode] (Import the file here)
-$ obj_prep.sh --decode
+$ filinator.sh --decode
 ```
 
 ```bash
