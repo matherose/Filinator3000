@@ -1,5 +1,5 @@
 
-# ObjPrepare
+# Filinator3000
 
 I created this script, because I wanted to backup my NAS, but my host (hello 1fichier) only accepts **files**, so instead of bothering to create all my folders manually, I bothered even more to create a script to do that automatically, before an (S)FTP upload.
 (I have too much free time...)
