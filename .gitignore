@@ -24,3 +24,19 @@ out/
 *.swp
 *.tmp
 *.log
+
+# Ninja build files
+.ninja*
+
+# Visual Studio Code
+.vscode/
+
+# MacOS
+.DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Linux
+lost+found/
