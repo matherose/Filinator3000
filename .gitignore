@@ -1,0 +1,26 @@
+# Ignore object files and build artifacts
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+
+# Ignore executables (adjust executable name as needed)
+filinator
+filinator.exe
+a.out
+
+# Build directories
+build/
+bin/
+out/
+
+# Debug symbols / directories
+*.dSYM/
+
+# Backup and temporary files
+*~
+*.swp
+*.tmp
+*.log

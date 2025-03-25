@@ -1,45 +1,21 @@
+# Filinator
 
-# Filinator3000
+**Filinator** is a minimal GNU99 C program that recursively encodes and decodes file and directory names. It supports both in-place transformations and an output mode that copies files with "flattened" encoded names. Filinator is designed to be simple, efficient, and easily optimizable using Clang and LLVM.
 
-I created this script, because I wanted to backup my NAS, but my host (hello 1fichier) only accepts **files**, so instead of bothering to create all my folders manually, I bothered even more to create a script to do that automatically, before an (S)FTP upload.
-(I have too much free time...)
+## Features
 
-I recommend to move the script to an environment present in the path, like /usr/local/bin, and then to be used in the folder you want.
+- **In-Place Encoding:**  
+  Converts spaces in directory names to a special encoded character (represented as `SEC_CHAR`, i.e., `§`), and for files, it transforms the absolute file path by replacing `/` with `@`, spaces with `_`, and `SEC_CHAR` with a space. The files and directories are then renamed accordingly.
 
-For example:
-You want to save your **stuff_super_important** folder
-```bash
-$ ls -l stuff_super_important
-  | - latepayment.txt
-  | - nothingimportant/onlyfansbill.xlsx
-  | - nothingimportant/last night with mistress wife must not discover.png
-```
+- **Output Mode Encoding:**  
+  When using the `-output` flag, instead of renaming files in place, Filinator copies each file from the input tree into a separate output directory with its encoded name, effectively producing a flattened file structure.
 
-Go to the folder and launch the script to encode
-```bash
-$ cd stuff_super_important
-$ filinator.sh --encode
-```
-**Result**
-```bash
-$ ls -l
-  | - latepayment.txt
-  | - nothingimportant@onlyfansbill.xlsx
-  | - nothingimportant@last§night§with§mistress§wife§must§not§discover.png
-```
-And you're ready to go !
+- **Decoding:**  
+  Reverses the encoding transformations, restoring the original file and directory names in place.
 
-And once your wife has gone to work, you can download your files back to the office PC to restore everything:
-```bash
-$ cd [Where_you_want_to_decode] (Import the file here)
-$ filinator.sh --decode
-```
+## Compilation
+
+Filinator is written using GNU99 standards. To compile with Clang and benefit from LLVM optimizations, run:
 
 ```bash
-$ cd stuff_super_important
-
-$ ls -l
-  | - latepayment.txt
-  | - nothingimportant/onlyfansbill.xlsx
-  | - nothingimportant/last night with mistress wife must not discover.png
-```
+clang -std=gnu99 -O3 -march=native -flto -o filinator filinator.c

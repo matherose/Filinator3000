@@ -1,0 +1,23 @@
+# Minimal build.ninja for Filinator
+# To build:   ninja
+# To clean:   ninja -t clean
+#
+# You can override variables like `target` via command line, for example:
+#   ninja target=filinator.exe
+
+cc = clang
+target = filinator
+src = filinator.c
+
+# Flags for GNU99 and high optimization.
+# On non-Windows systems we include -march=native and -flto.
+# You can override this variable from the command line if needed.
+cflags = -std=gnu99 -O3 -march=native -flto -Wall -Wextra -pedantic
+
+rule build_filinator
+  command = $cc $cflags -o $target $src
+  description = Building $target
+
+build $target: build_filinator $src
+
+default $target
