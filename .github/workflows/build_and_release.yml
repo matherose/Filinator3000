@@ -16,9 +16,6 @@ jobs:
           - os: mac
             runner: macos-latest
             binary: filinator
-          - os: windows
-            runner: windows-latest
-            binary: filinator.exe
 
     runs-on: ${{ matrix.platform.runner }}
 
