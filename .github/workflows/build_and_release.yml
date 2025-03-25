@@ -12,89 +12,75 @@ jobs:
         platform:
           - os: linux
             runner: ubuntu-latest
+            binary: filinator
           - os: mac
             runner: macos-latest
+            binary: filinator
           - os: windows
             runner: windows-latest
+            binary: filinator.exe
+    
     runs-on: ${{ matrix.platform.runner }}
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
-      - name: Install Ninja (Linux/macOS)
-        if: runner.os != 'Windows'
+      - name: Setup development environment (Linux)
+        if: matrix.platform.os == 'linux'
         run: |
-          if ! command -v ninja >/dev/null; then
-            sudo apt-get update && sudo apt-get install -y ninja-build;
-          fi
+          sudo apt-get update
+          sudo apt-get install -y build-essential ninja-build cmake
 
-      - name: Build with Ninja
-        run: ninja
+      - name: Setup development environment (macOS)
+        if: matrix.platform.os == 'mac'
+        run: |
+          brew install ninja cmake
 
-      - name: Rename binary on Windows
-        if: runner.os == 'Windows'
-        run: ren filinator filinator.exe
+      - name: Setup development environment (Windows)
+        if: matrix.platform.os == 'windows'
+        run: |
+          choco install ninja cmake
+          
+      - name: Configure build
+        run: |
+          cmake -B build -G Ninja
 
-      - name: Upload artifact (Windows)
-        if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v2
+      - name: Build
+        run: |
+          cmake --build build --config Release
+
+      - name: Copy binary to root directory
+        run: |
+          cp build/filinator${{ matrix.platform.os == 'windows' && '.exe' || '' }} .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
         with:
           name: filinator-${{ matrix.platform.os }}
-          path: filinator.exe
-
-      - name: Upload artifact (Non-Windows)
-        if: runner.os != 'Windows'
-        uses: actions/upload-artifact@v2
-        with:
-          name: filinator-${{ matrix.platform.os }}
-          path: filinator
+          path: ${{ matrix.platform.binary }}
 
   release:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
     steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v2
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
         with:
           path: artifacts
 
       - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
-
-      - name: Upload Linux binary
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/filinator-linux/filinator
-          asset_name: filinator-linux
-          asset_content_type: application/octet-stream
-
-      - name: Upload macOS binary
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/filinator-mac/filinator
-          asset_name: filinator-mac
-          asset_content_type: application/octet-stream
-
-      - name: Upload Windows binary
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/filinator-windows/filinator.exe
-          asset_name: filinator-windows.exe
-          asset_content_type: application/octet-stream
+          files: |
+            artifacts/filinator-linux/filinator
+            artifacts/filinator-mac/filinator
+            artifacts/filinator-windows/filinator.exe
