@@ -25,9 +25,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Windows packages
-        run: choco install -y llvm ninja
-        if: matrix.platform.os == 'windows'
       - name: Install Linux packages
         run: sudo apt install -y clang ninja-build
         if: matrix.platform.os == 'linux'
