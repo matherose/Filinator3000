@@ -10,7 +10,7 @@ TARGET = filinator
 SRC = filinator.c
 
 MAJOR = 0
-MINOR = 1
+MINOR = 2
 PATCH = 0
 
 # Flags pour GNU99 et optimisation élevée.
