@@ -31,7 +31,7 @@ clean:
 
 .PHONY: all clean
 
-release: clean
+release: all clean
 	@echo "Version: $(MAJOR).$(MINOR).$(PATCH)"
 	@echo "CFLAGS: $(CFLAGS)"
 	@echo "CC: $(CC)"
