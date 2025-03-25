@@ -40,23 +40,21 @@ jobs:
 
       - name: Release
         id: release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             ${{ matrix.platform.binary }}
-          token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ github.ref }}
-          name: ${{ github.ref }}
-          body: ${{ github.ref }}
 
       - name: Upload Release
         uses: actions/upload-release-asset@v1
         with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
           asset_path: ${{ matrix.platform.binary }}
           asset_name: ${{ matrix.platform.binary }}
           asset_content_type: application/octet-stream
-          token: ${{ secrets.GITHUB_TOKEN }}
+          upload_url: ${{ steps.release.outputs.upload_url }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cleanup
         run: ninja -t clean
