@@ -38,23 +38,5 @@ jobs:
       - name: Build
         run: ninja
 
-      - name: Release
-        id: release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            ${{ matrix.platform.binary }}
-          tag_name: ${{ github.ref }}
-
-      - name: Upload Release
-        uses: actions/upload-release-asset@v1
-        with:
-          asset_path: ${{ matrix.platform.binary }}
-          asset_name: ${{ matrix.platform.binary }}
-          asset_content_type: application/octet-stream
-          upload_url: ${{ steps.release.outputs.upload_url }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Cleanup
         run: ninja -t clean
