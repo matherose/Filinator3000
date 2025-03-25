@@ -26,16 +26,16 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
-        sudo apt-get install -y clang ninja-build
+        sudo apt-get install -y clang
 
     - name: Install dependencies on macOS
       if: matrix.os == 'macos-latest'
       run: |
         brew update
-        brew install llvm ninja
+        brew install llvm
 
-    - name: Build with Ninja
-      run: ninja
+    - name: Build
+      run: make
 
     - name: Rename binary
       run: |
