@@ -10,7 +10,7 @@ TARGET = filinator
 SRC = filinator.c
 
 MAJOR = 0
-MINOR = 2
+MINOR = 3
 PATCH = 0
 
 # Flags pour GNU99 et optimisation élevée.
@@ -39,5 +39,8 @@ release: all clean
 	@echo "SRC: $(SRC)"
 
 	# Create tag and push it
+	git add .
+	git commit -m "Version $(MAJOR).$(MINOR).$(PATCH)"
+	git push origin main
 	git tag -a v$(MAJOR).$(MINOR).$(PATCH) -m "Version $(MAJOR).$(MINOR).$(PATCH)"
 	git push origin v$(MAJOR).$(MINOR).$(PATCH)
