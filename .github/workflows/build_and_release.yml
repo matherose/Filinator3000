@@ -17,17 +17,17 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
-      
+
     - name: Install dependencies on Ubuntu
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
         sudo apt-get install -y clang ninja-build
-        
+
     - name: Install dependencies on macOS
       if: matrix.os == 'macos-latest'
       run: |
@@ -36,12 +36,16 @@ jobs:
 
     - name: Build with Ninja
       run: ninja
-      
+
+    - name: Rename binary
+      run: |
+        mv filinator filinator-${{ matrix.os }}
+
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
-        files: filinator
+        files: filinator-*
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
