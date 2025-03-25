@@ -38,11 +38,6 @@ release: all clean
 	@echo "TARGET: $(TARGET)"
 	@echo "SRC: $(SRC)"
 
-	# Push changes
-	git add .
-	git commit -m "Release $(MAJOR).$(MINOR).$(PATCH)"
-	git push
-
 	# Create tag and push it
 	git tag -a v$(MAJOR).$(MINOR).$(PATCH) -m "Version $(MAJOR).$(MINOR).$(PATCH)"
 	git push origin v$(MAJOR).$(MINOR).$(PATCH)
