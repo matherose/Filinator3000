@@ -19,68 +19,43 @@ jobs:
           - os: windows
             runner: windows-latest
             binary: filinator.exe
-    
+
     runs-on: ${{ matrix.platform.runner }}
-    
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
 
-      - name: Setup development environment (Linux)
-        if: matrix.platform.os == 'linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential ninja-build cmake
-
-      - name: Setup development environment (macOS)
-        if: matrix.platform.os == 'mac'
-        run: |
-          brew install ninja cmake
-
-      - name: Setup development environment (Windows)
+      - name: Install Windows packages
+        run: choco install -y clang ninja
         if: matrix.platform.os == 'windows'
-        run: |
-          choco install ninja cmake
-          
-      - name: Configure build
-        run: |
-          cmake -B build -G Ninja
+      - name: Install Linux packages
+        run: sudo apt install -y clang ninja-build
+        if: matrix.platform.os == 'linux'
+      - name: Install Mac packages
+        run: brew install clang ninja
+        if: matrix.platform.os == 'mac'
 
       - name: Build
-        run: |
-          cmake --build build --config Release
+        run: ninja
 
-      - name: Copy binary to root directory
-        run: |
-          cp build/filinator${{ matrix.platform.os == 'windows' && '.exe' || '' }} .
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: filinator-${{ matrix.platform.os }}
-          path: ${{ matrix.platform.binary }}
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v3
-        with:
-          path: artifacts
-
-      - name: Create Release
+      - name: Release
         uses: softprops/action-gh-release@v1
         with:
-          name: Release ${{ github.ref_name }}
-          draft: false
-          prerelease: false
           files: |
-            artifacts/filinator-linux/filinator
-            artifacts/filinator-mac/filinator
-            artifacts/filinator-windows/filinator.exe
+            ${{ matrix.binary }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          body: ${{ github.ref }}
+
+      - name: Upload Release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.release.outputs.upload_url }}
+          asset_path: ${{ matrix.binary }}
+          asset_name: ${{ matrix.binary }}
+          asset_content_type: application/octet-stream
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cleanup
+        run: ninja -t clean
