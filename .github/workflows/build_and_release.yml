@@ -2,53 +2,42 @@ name: Build and Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   build:
     strategy:
       matrix:
-        platform:
-          - os: linux
-            runner: ubuntu-latest
-            binary: filinator
-          - os: mac
-            runner: macos-latest
-            binary: filinator
-
-    runs-on: ${{ matrix.platform.runner }}
-
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Linux packages
-        run: sudo apt install -y clang ninja-build
-        if: matrix.platform.os == 'linux'
-      - name: Install Mac packages
-        run: brew install ninja
-        if: matrix.platform.os == 'mac'
-
-      - name: Build
-        run: ninja
-
-      - name: Cleanup
-        run: ninja -t clean
+    - name: Checkout code
+      uses: actions/checkout@v3
       
-      - name: Bump version and push tag
-        id: tag_version
-        uses: mathieudutour/github-tag-action@v6.2
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          fetch_all_tags: true
-      - name: Create a GitHub release
-        uses: ncipollo/release-action@v1
-        with:
-          tag: ${{ steps.tag_version.outputs.new_tag }}
-          name: Release ${{ steps.tag_version.outputs.new_tag }}
-          body: |
-            Changes in this Release:
-            - Add a new feature
-            - Fix a bug
-          artifacts: ${{ matrix.platform.binary }}
-          
+    - name: Install dependencies on Ubuntu
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang ninja-build
+        
+    - name: Install dependencies on macOS
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew update
+        brew install llvm ninja
+
+    - name: Build with Ninja
+      run: ninja
+      
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: filinator
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
