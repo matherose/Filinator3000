@@ -32,7 +32,7 @@ jobs:
         run: sudo apt install -y clang ninja-build
         if: matrix.platform.os == 'linux'
       - name: Install Mac packages
-        run: brew install clang ninja
+        run: brew install ninja
         if: matrix.platform.os == 'mac'
 
       - name: Build
