@@ -31,12 +31,17 @@ clean:
 
 .PHONY: all clean
 
-release:
+release: clean
 	@echo "Version: $(MAJOR).$(MINOR).$(PATCH)"
 	@echo "CFLAGS: $(CFLAGS)"
 	@echo "CC: $(CC)"
 	@echo "TARGET: $(TARGET)"
 	@echo "SRC: $(SRC)"
+
+	# Push changes
+	git add .
+	git commit -m "Release $(MAJOR).$(MINOR).$(PATCH)"
+	git push
 
 	# Create tag and push it
 	git tag -a v$(MAJOR).$(MINOR).$(PATCH) -m "Version $(MAJOR).$(MINOR).$(PATCH)"
