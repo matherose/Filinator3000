@@ -15,7 +15,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install Ninja (Linux only)
+      - name: Install Ninja (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
           if ! command -v ninja >/dev/null; then
@@ -26,15 +26,22 @@ jobs:
         run: ninja
 
       - name: Rename binary on Windows
-        if: runner.os == 'Windows'
+        if: ${{ runner.os == 'Windows' }}
         run: ren filinator filinator.exe
 
-      - name: Upload artifact
+      - name: Upload artifact (Windows)
+        if: ${{ runner.os == 'Windows' }}
         uses: actions/upload-artifact@v3
         with:
           name: filinator-${{ matrix.os }}
-          # On Windows, upload "filinator.exe"; elsewhere, "filinator"
-          path: ${{ runner.os == 'Windows' ? 'filinator.exe' : 'filinator' }}
+          path: filinator.exe
+
+      - name: Upload artifact (Non-Windows)
+        if: ${{ runner.os != 'Windows' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: filinator-${{ matrix.os }}
+          path: filinator
 
   release:
     needs: build
@@ -58,6 +65,7 @@ jobs:
 
       - name: Upload Linux binary
         uses: actions/upload-release-asset@v1
+        if: ${{ always() }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -68,6 +76,7 @@ jobs:
 
       - name: Upload macOS binary
         uses: actions/upload-release-asset@v1
+        if: ${{ always() }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -78,10 +87,11 @@ jobs:
 
       - name: Upload Windows binary
         uses: actions/upload-release-asset@v1
+        if: ${{ always() }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/filinator-Windows/filinator.exe
+          asset_path: artifacts/filinator-windows-latest/filinator.exe
           asset_name: filinator-windows.exe
           asset_content_type: application/octet-stream
