@@ -7,7 +7,7 @@ on:
   pull_request:
     branches: [ main ]
 
-# Ajout des permissions nécessaires pour créer des releases
+# Required permissions to create GitHub releases
 permissions:
   contents: write
 
@@ -26,13 +26,13 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
-        sudo apt-get install -y clang
+        sudo apt-get install -y gcc
 
     - name: Install dependencies on macOS
       if: matrix.os == 'macos-latest'
       run: |
         brew update
-        brew install llvm
+        # gcc is already installed by default on macOS GitHub runners
 
     - name: Build
       run: make

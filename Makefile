@@ -1,36 +1,38 @@
-# Makefile pour Filinator
-# Pour construire:   make
-# Pour nettoyer:     make clean
+# Makefile for Filinator
+# To build:         make
+# To clean:         make clean
+# To create release: make release
 #
-# Vous pouvez remplacer des variables comme 'TARGET' via la ligne de commande, par exemple:
+# You can override variables like 'TARGET' via command line, for example:
 #   make TARGET=filinator.exe
 
-CC = clang
+CC = gcc
 TARGET = filinator
 SRC = filinator.c
 
 MAJOR = 0
-MINOR = 1
+MINOR = 2
 PATCH = 0
 
-# Flags pour GNU99 et optimisation élevée.
-# Sur les systèmes non-Windows, nous incluons -march=native et -flto.
-# Vous pouvez remplacer cette variable depuis la ligne de commande si nécessaire.
-CFLAGS = -std=gnu99 -O3 -march=native -flto -Wall -Wextra -pedantic
+# C89 flags with POSIX compatibility for maximum portability
+# -Wall, -Wextra and -pedantic ensure code quality and standard compliance
+CFLAGS = -std=c89 -O2 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -pedantic
 
-# Cible par défaut
+# Default target - builds the executable
 all: $(TARGET)
 
-# Compilation de filinator
+# Compiles filinator from source
 $(TARGET): $(SRC)
 	$(CC) $(CFLAGS) -o $(TARGET) $(SRC)
 
-# Cible de nettoyage
+# Removes compiled binary and any temporary files
 clean:
 	rm -f $(TARGET)
 
 .PHONY: all clean
 
+# Creates a new version release with git tag
+# Requires git repo to be properly configured
 release: all clean
 	@echo "Version: $(MAJOR).$(MINOR).$(PATCH)"
 	@echo "CFLAGS: $(CFLAGS)"
@@ -38,7 +40,7 @@ release: all clean
 	@echo "TARGET: $(TARGET)"
 	@echo "SRC: $(SRC)"
 
-	# Create tag and push it
+	# Create tag and push it to repository
 	git add .
 	git commit -m "Version $(MAJOR).$(MINOR).$(PATCH)"
 	git push origin main
