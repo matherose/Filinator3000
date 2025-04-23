@@ -83,12 +83,13 @@ It's so portable that archaeologists will be able to compile it thousands of yea
 
 ## 🤓 Real-World Applications 🤓
 
-Filinator works wonders on your media collections, turning file names like `2025-04-05_11-44-56_IMG_1938.MP4` into something even more unreadable! Perfect for:
+Filinator works wonders on your media collections, turning file names like `MySuperMovieMadeWithTarantinoAndMySisterIn2004BeforeTheSecondKillBillMovieAndBeforeItWasCool.MP4` into something even more unreadable! Perfect for:
 
 - People whose folder organization is best described as "digital hoarding but make it technical"
 - Developers who want to make sure absolutely no one else can understand their file structure
 - Those who think file naming conventions are too mainstream and prefer to live dangerously
 - Anyone who needs plausible deniability for their questionable media organization skills
+- Individuals who enjoy creating filenames that resemble cryptic puzzles
 
 ## 🚨 WARNING 🚨
 

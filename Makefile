@@ -10,8 +10,8 @@ CC = gcc
 TARGET = filinator
 SRC = filinator.c
 
-MAJOR = 0
-MINOR = 2
+MAJOR = 1
+MINOR = 0
 PATCH = 0
 
 # C89 flags with POSIX compatibility for maximum portability
