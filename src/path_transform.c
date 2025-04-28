@@ -14,13 +14,13 @@
 int path_transform(const char *in, char *out, size_t output_size, int encode, int is_directory) {
   int i = 0, j = 0;
   char current, transformed;
-  
+
   assert(in != NULL);
   assert(out != NULL);
   assert(output_size > 0);
-  
+
   /* Skip leading "./" or ".\" when decoding files */
-  if (!is_directory && !encode && 
+  if (!is_directory && !encode &&
       (strncmp(in, "./", 2) == 0 || strncmp(in, ".\\", 2) == 0)) {
     i = 2;
   }
@@ -28,7 +28,7 @@ int path_transform(const char *in, char *out, size_t output_size, int encode, in
   /* Transform character by character */
   for (; in[i] != '\0' && j < (int)(output_size - 1); i++) {
     current = in[i];
-    
+
     /* Handle different transformation based on type and mode */
     if (is_directory) {
       /* Directory transformation */
@@ -66,10 +66,10 @@ int path_transform(const char *in, char *out, size_t output_size, int encode, in
           break;
       }
     }
-    
+
     out[j++] = transformed;
   }
-  
+
   /* Ensure null termination */
   out[j] = '\0';
 
@@ -79,17 +79,25 @@ int path_transform(const char *in, char *out, size_t output_size, int encode, in
   }
 
   /* Post-processing */
-  
+
   /* Remove leading path separator in decoded file paths */
   if (!is_directory && !encode && (out[0] == '/' || out[0] == '\\')) {
     memmove(out, out + 1, strlen(out));
   }
-  
+
+  /* Clean up double slashes which can occur during decoding */
+  if (!encode) {
+    char *double_slash;
+    while ((double_slash = strstr(out, "//")) != NULL) {
+      memmove(double_slash, double_slash + 1, strlen(double_slash));
+    }
+  }
+
   /* Normalize path separators to platform format */
   if (!encode) {
     file_normalize_path(out);
   }
-  
+
   return 0;
 }
 
@@ -99,7 +107,7 @@ int path_process_file(const char *path, int encode, const char *output_dir) {
   int len;
 
   assert(path != NULL);
-  
+
   /* Prepare source path */
   strncpy(old_path, path, sizeof(old_path) - 1);
   old_path[sizeof(old_path) - 1] = '\0';
@@ -111,7 +119,7 @@ int path_process_file(const char *path, int encode, const char *output_dir) {
       perror(old_path);
       return -1;
     }
-    
+
     /* Transform the path */
     if (path_transform(abs_path, new_path, sizeof(new_path), 1, 0) != 0) {
       fprintf(stderr, "Path transformation failed: path too long\n");
@@ -123,12 +131,12 @@ int path_process_file(const char *path, int encode, const char *output_dir) {
       fprintf(stderr, "Path transformation failed: path too long\n");
       return -1;
     }
-    
+
     /* Create parent directories when decoding */
     slash = strrchr(new_path, PATH_SEP);
     if (slash) {
       len = (int)(slash - new_path);
-      
+
       /* Create parent directory if path is valid */
       if (len > 0 && len < PATH_MAX) {
         char dir[PATH_MAX];
@@ -151,13 +159,13 @@ int path_process_file(const char *path, int encode, const char *output_dir) {
   if (output_dir) {
     return path_process_file_output(path, output_dir);
   }
-  
+
   /* Handle rename operation */
   if (platform_rename(old_path, new_path) != 0) {
     perror("rename (file)");
     return -1;
   }
-  
+
   printf("Renamed: %s -> %s\n", old_path, new_path);
   return 0;
 }
@@ -168,7 +176,7 @@ int path_process_file_output(const char *path, const char *output_dir) {
 
   assert(path != NULL);
   assert(output_dir != NULL);
-  
+
   /* Get absolute path */
   if (!file_get_absolute_path(path, abs_path)) {
     perror(path);
@@ -180,13 +188,13 @@ int path_process_file_output(const char *path, const char *output_dir) {
     fprintf(stderr, "Path transformation failed: path too long\n");
     return -1;
   }
-  
+
   /* Create destination path */
   if (platform_path_join(output_dir, enc_path, dest_path, sizeof(dest_path)) != 0) {
     fprintf(stderr, "Path join failed: path too long\n");
     return -1;
   }
-  
+
   /* Create parent directories */
   slash = strrchr(dest_path, PATH_SEP);
   if (slash) {
