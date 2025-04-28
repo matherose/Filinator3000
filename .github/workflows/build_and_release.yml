@@ -34,12 +34,9 @@ jobs:
         brew update
         # gcc is already installed by default on macOS GitHub runners
         
-    - name: Install dependencies on Windows
+    - name: Set up Developer Command Prompt
       if: matrix.os == 'windows-latest'
-      shell: cmd
-      run: |
-        echo "Installing MinGW via chocolatey"
-        choco install mingw -y
+      uses: ilammy/msvc-dev-cmd@v1
 
     - name: Build (Unix/Linux/macOS)
       if: matrix.os != 'windows-latest'
@@ -47,10 +44,9 @@ jobs:
         
     - name: Build (Windows)
       if: matrix.os == 'windows-latest'
-      shell: bash
+      shell: cmd
       run: |
-        export PATH="/c/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin:$PATH"
-        gcc -std=c89 -O2 -DPLATFORM_WIN32=1 -o filinator.exe src/*.c -Isrc
+        cl.exe /nologo /W4 /DPLATFORM_WIN32=1 /D_CRT_SECURE_NO_WARNINGS /Fefilinator.exe /Isrc src\*.c
 
     - name: Run Tests (Unix/Linux)
       if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
