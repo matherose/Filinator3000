@@ -37,9 +37,7 @@ jobs:
     - name: Install dependencies on Windows
       if: matrix.os == 'windows-latest'
       run: |
-        echo "Using MSVC compiler available by default on Windows runners"
-        # Or use mingw if needed
-        # choco install mingw -y
+        choco install mingw -y
 
     - name: Build (Unix/Linux/macOS)
       if: matrix.os != 'windows-latest'
@@ -47,10 +45,10 @@ jobs:
         
     - name: Build (Windows)
       if: matrix.os == 'windows-latest'
-      shell: cmd
+      shell: bash
       run: |
-        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-        cl.exe /nologo /W4 /DPLATFORM_WIN32=1 /D_CRT_SECURE_NO_WARNINGS /Fefilinator.exe /Isrc src\*.c
+        export PATH="/c/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin:$PATH"
+        gcc -std=c89 -O2 -DPLATFORM_WIN32=1 -o filinator.exe src/*.c -Isrc
 
     - name: Run Tests (Unix/Linux)
       if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
