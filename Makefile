@@ -1,6 +1,6 @@
 # Version information for release tagging
 MAJOR = 0
-MINOR = 0
+MINOR = 1
 PATCH = 0
 
 CC = gcc
