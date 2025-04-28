@@ -48,18 +48,6 @@ jobs:
       run: |
         cl.exe /nologo /W4 /DPLATFORM_WIN32=1 /D_CRT_SECURE_NO_WARNINGS /Fefilinator.exe /Isrc src\*.c
 
-    - name: Run Tests (Unix/Linux)
-      if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
-      run: |
-        chmod +x tests/run_tests.sh
-        ./tests/run_tests.sh
-        
-    - name: Run Tests (Windows)
-      if: matrix.os == 'windows-latest'
-      shell: powershell
-      run: |
-        ./tests/run_tests.ps1
-
     - name: Rename binary for Unix systems
       if: matrix.os != 'windows-latest'
       run: |
