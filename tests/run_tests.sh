@@ -120,12 +120,23 @@ echo -e "${YELLOW}Structure after decoding:${NC}"
 find "$PROJECT_DIR/tests/to_decode" -type f | sort > "$PROJECT_DIR/tests/decoded_files.txt"
 find "$PROJECT_DIR/tests/to_decode" -type d | sort > "$PROJECT_DIR/tests/decoded_dirs.txt"
 
+# Count decoded files (ignoring path structure, just count how many files exist)
+DECODED_COUNT=$(find "$PROJECT_DIR/tests/to_decode" -type f | wc -l)
+
+# Display the decoded files
+echo "Decoded files found: $DECODED_COUNT"
+find "$PROJECT_DIR/tests/to_decode" -type f | sort
+
 # Calculate checksums for decoded files
 echo -e "${YELLOW}Calculating checksums of decoded files...${NC}"
 find "$PROJECT_DIR/tests/to_decode" -type f -exec sha256sum {} \; | sort -k 2 > "$PROJECT_DIR/tests/decoded_checksums.txt"
 
 # Check that decoding created a structure similar to the original
-DECODED_COUNT=$(wc -l < "$PROJECT_DIR/tests/decoded_files.txt")
+# We just count files, ignoring their specific paths due to decoding path structure variations
+ORIGINAL_COUNT=$(wc -l < "$PROJECT_DIR/tests/original_files.txt")
+DECODED_COUNT=$(find "$PROJECT_DIR/tests/to_decode" -type f | wc -l)
+
+echo "Original files: $ORIGINAL_COUNT, Decoded files found: $DECODED_COUNT"
 
 if [ "$ORIGINAL_COUNT" -ne "$DECODED_COUNT" ]; then
     echo -e "${RED}Error: Different number of files after decoding.${NC}"
