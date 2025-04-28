@@ -39,6 +39,14 @@ mkdir -p "$TEST_BASE/Directory_without_spaces"
 mkdir -p "$TEST_BASE/Directory with spaces/Subdirectory"
 mkdir -p "$TEST_BASE/Directory with § special character"
 
+# Create directories for files with path-like names
+mkdir -p "$TEST_BASE/file/with"
+mkdir -p "$TEST_BASE/Directory with spaces/file/with"
+
+# Create additional test directories with deeper structure
+mkdir -p "$TEST_BASE/Nested/Folder/Structure/With/Many/Levels"
+mkdir -p "$TEST_BASE/Another Nested/Structure With/Spaces in path"
+
 # Create files with different names
 echo "Normal content" > "$TEST_BASE/normal_file.txt"
 echo "Content with spaces" > "$TEST_BASE/file with spaces.txt"
@@ -47,6 +55,11 @@ echo "Content with section" > "$TEST_BASE/file§with§section.txt"
 echo "Content in subdirectory" > "$TEST_BASE/Directory with spaces/file in directory.txt"
 echo "Special content" > "$TEST_BASE/Directory with § special character/special file.txt"
 echo "Content with spaces and slashes" > "$TEST_BASE/Directory with spaces/file/with/paths.txt"
+
+# Additional test files in nested directories
+echo "Nested content 1" > "$TEST_BASE/Nested/Folder/Structure/With/Many/Levels/deep_file.txt"
+echo "Nested content 2" > "$TEST_BASE/Nested/Folder/Structure/With/Many/Levels/another deep file.txt"
+echo "Nested content 3" > "$TEST_BASE/Another Nested/Structure With/Spaces in path/nested file with spaces.txt"
 
 # List the created structure
 echo -e "${YELLOW}Test structure created:${NC}"

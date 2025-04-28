@@ -37,12 +37,19 @@ jobs:
     - name: Install dependencies on Windows
       if: matrix.os == 'windows-latest'
       run: |
-        # On utilise le compilateur MSVC disponible par défaut sur les runners Windows
-        # ou on peut utiliser aussi mingw si nécessaire
+        echo "Using MSVC compiler available by default on Windows runners"
+        # Or use mingw if needed
         # choco install mingw -y
 
-    - name: Build
+    - name: Build (Unix/Linux/macOS)
+      if: matrix.os != 'windows-latest'
       run: make
+        
+    - name: Build (Windows)
+      if: matrix.os == 'windows-latest'
+      shell: cmd
+      run: |
+        cl.exe /nologo /W4 /DPLATFORM_WIN32=1 /D_CRT_SECURE_NO_WARNINGS /Fefilinator.exe /Isrc src\*.c
 
     - name: Run Tests (Unix/Linux)
       if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
