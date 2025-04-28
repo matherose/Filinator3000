@@ -1,6 +1,6 @@
 # Version information for release tagging
 MAJOR = 0
-MINOR = 1
+MINOR = 0
 PATCH = 0
 
 CC = gcc
@@ -55,10 +55,10 @@ $(TARGET): $(OBJS)
 
 # Removes compiled binary and build directory
 clean:
-	rm -f $(TARGET) 
+	rm -f $(TARGET)
 	rm -rf $(BUILD_DIR)
 
-.PHONY: all clean
+.PHONY: all clean release
 
 # Creates a new version release with git tag
 # Requires git repository to be properly configured
@@ -69,9 +69,16 @@ release: all clean
 	@echo "TARGET: $(TARGET)"
 	@echo "SRC_DIR: $(SRC_DIR)"
 
-	# Create tag and push it to repository
-	git add .
-	git commit -m "Version $(MAJOR).$(MINOR).$(PATCH)"
-	git push origin main
-	git tag -a v$(MAJOR).$(MINOR).$(PATCH) -m "Version $(MAJOR).$(MINOR).$(PATCH)"
-	git push origin v$(MAJOR).$(MINOR).$(PATCH)
+	# Check if there are changes to commit
+	@if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Changes detected, creating commit and tag..."; \
+		git add .; \
+		git commit -m "Version $(MAJOR).$(MINOR).$(PATCH)"; \
+		git push origin main; \
+	else \
+		echo "No changes detected, creating tag only..."; \
+	fi
+
+	# Create tag and push it
+	git tag -a v$(MAJOR).$(MINOR).$(PATCH) -m "Version $(MAJOR).$(MINOR).$(PATCH)" || true
+	git push origin v$(MAJOR).$(MINOR).$(PATCH) || true
