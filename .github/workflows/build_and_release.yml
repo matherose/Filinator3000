@@ -15,7 +15,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -33,13 +33,38 @@ jobs:
       run: |
         brew update
         # gcc is already installed by default on macOS GitHub runners
+        
+    - name: Install dependencies on Windows
+      if: matrix.os == 'windows-latest'
+      run: |
+        # On utilise le compilateur MSVC disponible par défaut sur les runners Windows
+        # ou on peut utiliser aussi mingw si nécessaire
+        # choco install mingw -y
 
     - name: Build
       run: make
 
-    - name: Rename binary
+    - name: Run Tests (Unix/Linux)
+      if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+      run: |
+        chmod +x tests/run_tests.sh
+        ./tests/run_tests.sh
+        
+    - name: Run Tests (Windows)
+      if: matrix.os == 'windows-latest'
+      shell: powershell
+      run: |
+        ./tests/run_tests.ps1
+
+    - name: Rename binary for Unix systems
+      if: matrix.os != 'windows-latest'
       run: |
         mv filinator filinator-${{ matrix.os }}
+
+    - name: Rename binary for Windows
+      if: matrix.os == 'windows-latest'
+      run: |
+        move filinator.exe filinator-${{ matrix.os }}.exe
 
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')

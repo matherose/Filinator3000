@@ -2,6 +2,14 @@
 
 **Filinator** is a C program so minimalist it makes Marie Kondo look like a compulsive hoarder. This little C89 marvel transforms your file and directory names with the elegance of a ninja and the efficiency of a German kitchen appliance. It's the only relationship with transformation that most programmers will ever experience.
 
+## First Things First... why?
+
+Everything started from a statement : ***1fichier*** (my file hoster) don't like uploading folders through FTP... yep that's it.
+So I needed a way to encode my folders and files names to make them compatible with.
+I wanted to make it as simple as possible, so I wrote this little program.
+I also wanted to make it as fun as possible, so I added a lot of useless features and a lot of useless comments.
+
+
 ## ✨ How This Beast Actually Works ✨
 
 Filinator operates in two primary modes, each capable of mangling your file system in its own special way:

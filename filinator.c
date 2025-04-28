@@ -1,7 +1,8 @@
-/*
- * filinator.c - File and directory name transformer
+/**
+ * @file filinator.c
+ * @brief File and directory name transformer
  * 
- * A POSIX-compliant C89 utility for transforming file and directory names
+ * A cross-platform C89 utility for transforming file and directory names
  * to improve portability across different systems and sharing platforms.
  * 
  * This program helps you safely share files with special characters
@@ -12,36 +13,130 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <dirent.h>
 #include <sys/stat.h>
-#include <unistd.h>
 #include <limits.h>
 
-/* 
- * Define PATH_MAX if it's not defined
- * According to POSIX.1-2001, this is required for portability
- * across different systems and ensures safe path handling
- */
-#ifndef PATH_MAX
-#define PATH_MAX 4096
+/* Platform-specific includes and defines */
+#ifdef _WIN32
+    #include <windows.h>
+    #include <direct.h>
+    #define mkdir(path, mode)      _mkdir(path)
+    #define PATH_SEP               '\\'
+    #define PATH_SEP_STR           "\\"
+    #define realpath(N,R)          _fullpath((R),(N),PATH_MAX)
+    #define IS_DIR(mode)           ((mode) & _S_IFDIR)
+    #define IS_REG_FILE(mode)      ((mode) & _S_IFREG)
+#else
+    #include <dirent.h>
+    #include <unistd.h>
+    #define PATH_SEP               '/'
+    #define PATH_SEP_STR           "/"
+    #define IS_DIR(mode)           S_ISDIR(mode)
+    #define IS_REG_FILE(mode)      S_ISREG(mode)
 #endif
 
-/* Section character (§) used for encoding spaces in directory names */
-#define SEC_CHAR '\xA7'
+/* Define PATH_MAX if not defined */
+#ifndef PATH_MAX
+    #define PATH_MAX 4096
+#endif
 
-/* Global output directory path - when not NULL, encoded files are copied here */
-char *g_output_dir = NULL;
+/* Special characters used for encoding */
+#define SEC_CHAR    '\xA7'  /* Section character (§) used for encoding spaces in directory names */
+#define PATH_ENCODE '@'     /* Character used to encode path separators */
+#define SPACE_ENCODE '_'    /* Character used to encode spaces in filenames */
 
-/* 
- * Recursively create directories with specified permissions
- * Similar to mkdir -p on Unix systems
- * 
- * path: The directory path to create
- * mode: Permission mode (e.g. 0755 for rwxr-xr-x)
- * 
- * Returns: 0 on success, -1 on failure
+/* Global output directory path */
+static char *g_output_dir = NULL;
+
+/* Forward declarations */
+static void process_dir(const char *dpath, int encode, int skip_rename);
+
+/**
+ * @name Windows Directory API Compatibility Layer
+ * @{
  */
-int mkpath(const char *path, mode_t mode) {
+#ifdef _WIN32
+typedef struct {
+    HANDLE handle;          /**< Windows directory handle */
+    WIN32_FIND_DATA data;   /**< Windows file information structure */
+    int first;              /**< Flag indicating first read operation */
+} DIR;
+
+struct dirent {
+    char d_name[MAX_PATH];  /**< Name of directory entry */
+};
+
+/**
+ * @brief Open a directory stream
+ * 
+ * @param path Directory path
+ * @return DIR pointer or NULL on failure
+ */
+static DIR *opendir(const char *path) 
+{
+    DIR *dir = malloc(sizeof(DIR));
+    char search_path[PATH_MAX];
+    
+    if (!dir) 
+        return NULL;
+    
+    snprintf(search_path, PATH_MAX, "%s\\*", path);
+    dir->handle = FindFirstFile(search_path, &dir->data);
+    
+    if (dir->handle == INVALID_HANDLE_VALUE) {
+        free(dir);
+        return NULL;
+    }
+    
+    dir->first = 1;
+    return dir;
+}
+
+/**
+ * @brief Read a directory entry
+ * 
+ * @param dir Directory stream
+ * @return Directory entry or NULL when no more entries
+ */
+static struct dirent *readdir(DIR *dir) 
+{
+    static struct dirent entry;
+    
+    if (dir->first)
+        dir->first = 0;
+    else if (!FindNextFile(dir->handle, &dir->data))
+        return NULL;
+    
+    strcpy(entry.d_name, dir->data.cFileName);
+    return &entry;
+}
+
+/**
+ * @brief Close a directory stream
+ * 
+ * @param dir Directory stream to close
+ * @return 0 on success
+ */
+static int closedir(DIR *dir) 
+{
+    if (dir) {
+        FindClose(dir->handle);
+        free(dir);
+    }
+    return 0;
+}
+#endif /* _WIN32 */
+/** @} */
+
+/**
+ * @brief Recursively create directories
+ * 
+ * @param path Directory path to create
+ * @param mode Permission mode (ignored on Windows)
+ * @return 0 on success, -1 on failure
+ */
+static int mkpath(const char *path, mode_t mode) 
+{
     char tmp[PATH_MAX];
     char *p;
     size_t len;
@@ -49,89 +144,133 @@ int mkpath(const char *path, mode_t mode) {
     strncpy(tmp, path, sizeof(tmp) - 1);
     tmp[sizeof(tmp) - 1] = '\0';
 
+    /* Remove trailing slash if present */
     len = strlen(tmp);
-    if (len == 0) return -1;
-
-    /* Handle trailing slash by removing it */
-    if (tmp[len-1] == '/')
+    if (len == 0) 
+        return -1;
+    if (tmp[len-1] == PATH_SEP)
         tmp[len-1] = '\0';
 
+    /* Create each directory in the path */
     for (p = tmp + 1; *p; p++) {
-        if (*p == '/') {
+        if (*p == PATH_SEP) {
             *p = '\0';
+            #ifdef _WIN32
+            if (_mkdir(tmp) != 0 && errno != EEXIST)
+            #else
             if (mkdir(tmp, mode) != 0 && errno != EEXIST)
+            #endif
                 return -1;
-            *p = '/';
+            *p = PATH_SEP;
         }
     }
+
+    /* Create the final directory */
+    #ifdef _WIN32
+    return (_mkdir(tmp) != 0 && errno != EEXIST) ? -1 : 0;
+    #else
     return (mkdir(tmp, mode) != 0 && errno != EEXIST) ? -1 : 0;
+    #endif
 }
 
-/* 
- * Transform a file or directory path according to encoding rules
+/**
+ * @brief Normalize path separators to platform-specific ones
  * 
- * in: Input path to transform
- * out: Output buffer to receive transformed path
- * encode: 1 for encoding, 0 for decoding
- * is_directory: 1 if path is a directory, 0 if it's a file
- * 
- * Encoding rules:
- * - For directories: spaces → § (section character)
- * - For files: / → @, spaces → _, § → spaces
+ * @param path Path to normalize (modified in-place)
  */
-void transform_path(const char *in, char *out, int encode, int is_directory) {
-    int i = 0, j = 0;
+static void normalize_path(char *path) 
+{
+    char *p;
+    for (p = path; *p; p++) {
+        if (*p == '/' || *p == '\\')
+            *p = PATH_SEP;
+    }
+}
 
-    /* For file decoding, skip leading "./" to avoid path issues */
-    if (!is_directory && !encode && strncmp(in, "./", 2) == 0)
+/**
+ * @brief Transform a path according to encoding rules
+ * 
+ * @param in Input path
+ * @param out Output buffer 
+ * @param encode 1 for encoding, 0 for decoding
+ * @param is_directory 1 for directory, 0 for file
+ */
+static void transform_path(const char *in, char *out, int encode, int is_directory) 
+{
+    int i = 0, j = 0;
+    char current, transformed;
+    
+    /* Skip leading "./" or ".\" when decoding files */
+    if (!is_directory && !encode && 
+        (strncmp(in, "./", 2) == 0 || strncmp(in, ".\\", 2) == 0))
         i = 2;
 
+    /* Transform character by character */
     for (; in[i] != '\0' && j < PATH_MAX - 1; i++) {
+        current = in[i];
+        
+        /* Handle different transformation based on type and mode */
         if (is_directory) {
-            out[j++] = encode ?
-                      (in[i] == ' ' ? SEC_CHAR : in[i]) :
-                      (in[i] == SEC_CHAR ? ' ' : in[i]);
+            /* Directory transformation */
+            transformed = encode ? (current == ' ' ? SEC_CHAR : current)
+                                : (current == SEC_CHAR ? ' ' : current);
         } else if (encode) {
-            if (in[i] == '/') {
-                out[j++] = '@';
-            } else if (in[i] == ' ') {
-                out[j++] = '_';
-            } else if (in[i] == SEC_CHAR) {
-                out[j++] = ' ';
-            } else {
-                out[j++] = in[i];
+            /* File encoding */
+            switch (current) {
+                case '/':
+                case '\\':
+                    transformed = PATH_ENCODE;
+                    break;
+                case ' ':
+                    transformed = SPACE_ENCODE;
+                    break;
+                case SEC_CHAR:
+                    transformed = ' ';
+                    break;
+                default:
+                    transformed = current;
+                    break;
             }
-        } else { /* decode file path */
-            if (in[i] == '@') {
-                out[j++] = '/';
-            } else if (in[i] == '_' || in[i] == SEC_CHAR) {
-                out[j++] = ' ';
-            } else {
-                out[j++] = in[i];
+        } else {
+            /* File decoding */
+            switch (current) {
+                case PATH_ENCODE:
+                    transformed = PATH_SEP;
+                    break;
+                case SPACE_ENCODE:
+                case SEC_CHAR:
+                    transformed = ' ';
+                    break;
+                default:
+                    transformed = current;
+                    break;
             }
         }
+        
+        out[j++] = transformed;
     }
     out[j] = '\0';
 
-    /* Remove leading '/' in decoded file paths to prevent root-relative paths */
-    if (!is_directory && !encode && out[0] == '/') {
-        char *src = out + 1;
-        char *dst = out;
-        while ((*dst++ = *src++) != '\0')
-            ;
-    }
+    /* Post-processing */
+    
+    /* Remove leading path separator in decoded file paths */
+    if (!is_directory && !encode && (out[0] == '/' || out[0] == '\\'))
+        memmove(out, out + 1, strlen(out));
+    
+    /* Normalize path separators to platform format */
+    if (!encode)
+        normalize_path(out);
 }
 
-/* 
- * Copy a file from source to destination with binary safety
- * Uses buffer-based copy for efficiency
+/**
+ * @brief Copy a file with binary safety
  * 
- * src: Source file path
- * dst: Destination file path
- * 
- * Returns: 0 on success, -1 on failure
+ * @param src Source path
+ * @param dst Destination path
+ * @return 0 on success, -1 on failure
  */
-int copy_file(const char *src, const char *dst) {
+static int copy_file(const char *src, const char *dst) 
+{
     FILE *fsrc = NULL, *fdst = NULL;
     char buf[4096];
     size_t n;
@@ -159,34 +298,56 @@ int copy_file(const char *src, const char *dst) {
     return status;
 }
 
-/* 
- * Process a single file (rename it according to encoding/decoding rules)
+/**
+ * @brief Get absolute path in a cross-platform manner
  * 
- * path: Path to the file
- * encode: 1 for encoding, 0 for decoding
+ * @param path Input path
+ * @param absp Output buffer for absolute path
+ * @return 1 on success, 0 on failure
  */
-void process_file(const char *path, int encode) {
+static int get_absolute_path(const char *path, char *absp) 
+{
+    #ifdef _WIN32
+    return _fullpath(absp, path, PATH_MAX) != NULL;
+    #else
+    return realpath(path, absp) != NULL;
+    #endif
+}
+
+/**
+ * @brief Process a single file
+ * 
+ * @param path File path
+ * @param encode Flag for encoding/decoding
+ */
+static void process_file(const char *path, int encode) 
+{
     char oldp[PATH_MAX], newp[PATH_MAX], absp[PATH_MAX];
     char *slash;
     int len;
 
+    /* Prepare source path */
     strncpy(oldp, path, sizeof(oldp) - 1);
     oldp[sizeof(oldp) - 1] = '\0';
 
+    /* Generate new path name based on encoding mode */
     if (encode) {
-        /* For encoding, get absolute path first to ensure proper transformation */
-        if (!realpath(oldp, absp)) {
+        /* For encoding, use absolute path */
+        if (!get_absolute_path(oldp, absp)) {
             perror(oldp);
             return;
         }
         transform_path(absp, newp, 1, 0);
     } else {
+        /* For decoding, use direct transformation */
         transform_path(oldp, newp, 0, 0);
-
-        /* When decoding, ensure target directory exists before renaming */
-        slash = strrchr(newp, '/');
+        
+        /* Create parent directories when decoding */
+        slash = strrchr(newp, PATH_SEP);
         if (slash) {
             len = (int)(slash - newp);
+            
+            /* Create parent directory if path is valid */
             if (len < PATH_MAX) {
                 char dir[PATH_MAX];
                 strncpy(dir, newp, len);
@@ -196,80 +357,126 @@ void process_file(const char *path, int encode) {
         }
     }
 
-    if (strcmp(oldp, newp) != 0 && rename(oldp, newp) != 0)
+    /* Skip if no change needed */
+    if (strcmp(oldp, newp) == 0)
+        return;
+
+    /* Handle rename operation */
+    #ifdef _WIN32
+    /* Handle Windows rename restrictions */
+    remove(newp);
+    #endif
+    
+    if (rename(oldp, newp) != 0)
         perror("rename (file)");
 }
 
-/* 
- * Process a file in output mode - encode and copy to output directory
+/**
+ * @brief Process a file in output mode
  * 
- * path: Path to the source file
+ * @param path Source file path
  */
-void process_file_out(const char *path) {
+static void process_file_out(const char *path) 
+{
     char absp[PATH_MAX], enc[PATH_MAX], dest[PATH_MAX];
 
-    if (!realpath(path, absp)) {
+    /* Get absolute path */
+    if (!get_absolute_path(path, absp)) {
         perror(path);
         return;
     }
 
+    /* Encode the path */
     transform_path(absp, enc, 1, 0);
+    
+    /* Create destination path */
+    #ifdef _WIN32
+    sprintf(dest, "%s\\%s", g_output_dir, enc);
+    #else
     sprintf(dest, "%s/%s", g_output_dir, enc);
+    #endif
 
+    /* Copy the file */
     if (copy_file(path, dest) == 0)
         printf("Copied: %s -> %s\n", path, dest);
 }
 
-/* Forward declaration for recursive function */
-void process_dir(const char *dpath, int encode, int skip_rename);
-
-/* 
- * Process a single directory entry (file or subdirectory)
+/**
+ * @brief Process a directory entry (file or subdirectory)
  * 
- * dpath: Parent directory path
- * name: Name of the entry (file or directory)
- * encode: 1 for encoding, 0 for decoding
- * skip_rename: 1 to skip renaming this entry (used for root directory)
+ * @param dpath Parent directory path
+ * @param name Entry name
+ * @param encode Flag for encoding/decoding
+ * @param skip_rename Flag to skip renaming
  */
-void process_entry(const char *dpath, const char *name, int encode, int skip_rename) {
+static void process_entry(const char *dpath, const char *name, int encode, int skip_rename) 
+{
     struct stat st;
     char full[PATH_MAX];
     char newdir[PATH_MAX];
 
-    /* Construct full path by joining directory and entry name */
-    sprintf(full, "%s/%s", dpath, name);
+    /* Skip special directory entries */
+    if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
+        return;
 
+    /* Construct full path */
+    #ifdef _WIN32
+    sprintf(full, "%s\\%s", dpath, name);
+    #else
+    sprintf(full, "%s/%s", dpath, name);
+    #endif
+
+    /* Get file/directory info */
     if (stat(full, &st) != 0) {
         perror(full);
         return;
     }
 
-    if (S_ISDIR(st.st_mode)) {
-        /* Process directory contents before renaming the directory itself */
-        process_dir(full, encode, 0);
-
-        if (!g_output_dir && !skip_rename) {
-            transform_path(full, newdir, encode, 1);
-            if (strcmp(full, newdir) != 0 && rename(full, newdir) != 0)
-                perror("rename (dir)");
-        }
-    } else if (S_ISREG(st.st_mode)) {
-        /* Handle files based on mode (output or in-place) */
+    /* Process based on entry type */
+    if (IS_REG_FILE(st.st_mode)) {
+        /* Process regular file */
         if (g_output_dir && encode)
             process_file_out(full);
         else
             process_file(full, encode);
+        return;
     }
+    
+    if (!IS_DIR(st.st_mode))
+        /* Skip special files (symlinks, devices, etc.) */
+        return;
+    
+    /* Process directory */
+    process_dir(full, encode, 0);
+        
+    /* Rename directory if needed */
+    if (g_output_dir || skip_rename)
+        /* Skip renaming if we're in output mode or explicitly skipping */
+        return;
+        
+    transform_path(full, newdir, encode, 1);
+    if (strcmp(full, newdir) == 0)
+        /* No name change needed */
+        return;
+        
+    #ifdef _WIN32
+    /* On Windows, rename fails if target exists */
+    rmdir(newdir);
+    #endif
+        
+    if (rename(full, newdir) != 0)
+        perror("rename (dir)");
 }
 
-/* 
- * Recursively process a directory and its contents
+/**
+ * @brief Process a directory recursively
  * 
- * dpath: Path to the directory
- * encode: 1 for encoding, 0 for decoding
- * skip_rename: 1 to skip renaming this directory (used for root directory)
+ * @param dpath Directory path
+ * @param encode Flag for encoding/decoding
+ * @param skip_rename Flag to skip renaming the directory itself
  */
-void process_dir(const char *dpath, int encode, int skip_rename) {
+static void process_dir(const char *dpath, int encode, int skip_rename) 
+{
     DIR *dp;
     struct dirent *de;
 
@@ -279,71 +486,92 @@ void process_dir(const char *dpath, int encode, int skip_rename) {
         return;
     }
 
-    while ((de = readdir(dp)) != NULL) {
-        /* Skip special directory entries to avoid recursion problems */
-        if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0)
-            continue;
-
+    while ((de = readdir(dp)) != NULL)
         process_entry(dpath, de->d_name, encode, skip_rename);
-    }
 
     closedir(dp);
 }
 
-int main(int argc, char *argv[]) {
+/**
+ * @brief Main program entry point
+ * 
+ * @param argc Argument count
+ * @param argv Argument values
+ * @return Exit status
+ */
+int main(int argc, char *argv[]) 
+{
     int encode;
     struct stat st;
-
-    /* Check command line arguments */
+    int mode;
+    
+    /* Basic argument validation */
     if (argc < 3) {
         fprintf(stderr, "Usage:\n  %s -encode <dir> [-output <dir>]\n  %s -decode <dir>\n",
                 argv[0], argv[0]);
         return 1;
     }
-
-    /* Determine operation mode */
-    if (strcmp(argv[1], "-encode") == 0)
+    
+    /* Determine operation mode using a mode identifier */
+    if (strcmp(argv[1], "-encode") == 0) {
+        mode = 1;  /* encode mode */
         encode = 1;
-    else if (strcmp(argv[1], "-decode") == 0)
+    } else if (strcmp(argv[1], "-decode") == 0) {
+        mode = 2;  /* decode mode */
         encode = 0;
-    else {
-        fprintf(stderr, "Invalid mode\n");
+    } else {
+        fprintf(stderr, "Invalid mode: %s\n", argv[1]);
+        fprintf(stderr, "Usage:\n  %s -encode <dir> [-output <dir>]\n  %s -decode <dir>\n",
+                argv[0], argv[0]);
         return 1;
     }
-
-    /* Handle output directory specification for encoding mode */
-    if (encode && argc == 5 && strcmp(argv[3], "-output") == 0) {
-        g_output_dir = argv[4];
-
-        if (stat(g_output_dir, &st) != 0) {
-            if (mkdir(g_output_dir, 0755) != 0) {
-                perror("mkdir output");
+    
+    /* Process arguments based on mode */
+    switch (mode) {
+        case 1:  /* encode mode */
+            /* Handle different argument patterns for encode mode */
+            if (argc == 3)
+                /* Default output directory */
+                g_output_dir = "output";
+            else if (argc == 5 && strcmp(argv[3], "-output") == 0)
+                /* Custom output directory */
+                g_output_dir = argv[4];
+            else {
+                fprintf(stderr, "Invalid arguments for encode mode\n");
+                fprintf(stderr, "Usage: %s -encode <dir> [-output <dir>]\n", argv[0]);
                 return 1;
             }
-        } else if (!S_ISDIR(st.st_mode)) {
-            fprintf(stderr, "Output is not a directory\n");
-            return 1;
-        }
-    } else if (encode && argc == 3) {
-        /* Use default "output" directory for encoding if none specified */
-        g_output_dir = "output";
-
-        if (stat(g_output_dir, &st) != 0) {
-            if (mkdir(g_output_dir, 0755) != 0) {
-                perror("mkdir output");
+            
+            /* Ensure output directory exists */
+            if (stat(g_output_dir, &st) != 0) {
+                /* Directory doesn't exist, create it */
+                if (mkdir(g_output_dir, 0755) != 0) {
+                    perror("Error creating output directory");
+                    return 1;
+                }
+                
+                /* Inform about default directory creation */
+                if (argc == 3)
+                    printf("Default output directory '%s' created\n", g_output_dir);
+            } else if (!IS_DIR(st.st_mode)) {
+                /* Path exists but is not a directory */
+                fprintf(stderr, "'%s' exists but is not a directory\n", g_output_dir);
                 return 1;
             }
-            printf("Default output directory 'output' created\n");
-        } else if (!S_ISDIR(st.st_mode)) {
-            fprintf(stderr, "Default output directory 'output' exists but is not a directory\n");
-            return 1;
-        }
-    } else if (argc != 3) {
-        fprintf(stderr, "Usage error\n");
-        return 1;
+            break;
+            
+        case 2:  /* decode mode */
+            if (argc != 3) {
+                fprintf(stderr, "Invalid arguments for decode mode\n");
+                fprintf(stderr, "Usage: %s -decode <dir>\n", argv[0]);
+                return 1;
+            }
+            /* No output directory in decode mode */
+            g_output_dir = NULL;
+            break;
     }
-
-    /* Start processing from the specified root directory */
+    
+    /* Process the source directory */
     process_dir(argv[2], encode, 1);
     return 0;
 }
